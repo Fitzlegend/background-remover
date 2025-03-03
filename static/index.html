@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Background Remover</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Arial', sans-serif;
+        }
+        body {
+            background: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #333;
+            padding: 20px;
+        }
+        header {
+            background: #f7f7f7;
+            width: 100%;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            font-size: 1.8em;
+            color: #333;
+        }
+        .app-container {
+            width: 90%;
+            max-width: 900px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        .step {
+            margin-bottom: 20px;
+            transition: opacity 0.3s ease;
+        }
+        .step.hidden {
+            opacity: 0;
+            height: 0;
+            overflow: hidden;
+        }
+        .drop-zone {
+            border: 2px dashed #007BFF;
+            border-radius: 15px;
+            padding: 50px;
+            background: #fff;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            transition: border-color 0.3s;
+            cursor: pointer;
+        }
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #0056b3;
+        }
+        .drop-zone.uploaded {
+            animation: bounce 0.5s ease;
+        }
+        @keyframes bounce {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .drop-zone p {
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #007BFF;
+            color: white;
+            border: none;
+            padding: 12px 40px;
+            border-radius: 8px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.2s;
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+        }
+        button:hover:not(:disabled) {
+            background: #0056b3;
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            background: #ccc;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+        #status {
+            font-size: 1.1em;
+            margin: 20px 0;
+            color: #666;
+        }
+        .results {
+            display: flex;
+            flex-direction: row;
+            overflow-x: auto;
+            gap: 20px;
+            margin-top: 20px;
+            padding: 10px;
+            background: #f7f7f7;
+            border-radius: 10px;
+        }
+        .result-item {
+            background: #fff;
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            flex: 0 0 auto;
+        }
+        img {
+            max-width: 200px;
+            border-radius: 5px;
+        }
+        @media (max-width: 600px) {
+            h1 { font-size: 1.5em; }
+            .app-container { padding: 15px; }
+            img { max-width: 150px; }
+            button { padding: 10px 30px; font-size: 1em; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Background Remover</h1>
+    </header>
+    <div class="app-container">
+        <!-- Step 1: Upload -->
+        <div class="step" id="step1">
+            <div class="drop-zone" id="dropZone">
+                <input type="file" id="photoInput" accept="image/*" multiple style="display: none;">
+                <p id="dropText">Drag & drop images here or click to upload</p>
+                <button id="uploadBtn">Select a picture</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Process -->
+        <div class="step hidden" id="step2">
+            <button id="processBtn">Remove Background(s)</button>
+        </div>
+
+        <!-- Step 3: Download -->
+        <div class="step hidden" id="step3">
+            <button id="downloadBtn" disabled>Download All</button>
+        </div>
+
+        <div id="status">Upload images to start!</div>
+        <div id="results" class="results"></div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const dropText = document.getElementById('dropText');
+        const photoInput = document.getElementById('photoInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+        const step3 = document.getElementById('step3');
+        const processBtn = document.getElementById('processBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const status = document.getElementById('status');
+        const results = document.getElementById('results');
+
+        // Drag and drop handling
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            photoInput.files = e.dataTransfer.files;
+            handleFiles();
+        });
+        dropZone.addEventListener('click', () => photoInput.click());
+        uploadBtn.addEventListener('click', () => photoInput.click());
+        photoInput.addEventListener('change', handleFiles);
+
+        function handleFiles() {
+            const files = photoInput.files;
+            if (files.length > 0) {
+                dropZone.classList.add('uploaded');
+                dropText.textContent = `${files.length} image(s) uploaded! Ready to process.`;
+                step1.classList.add('hidden');
+                step2.classList.remove('hidden');
+                status.textContent = 'Click "Remove Background(s)" to process.';
+            }
+        }
+
+        processBtn.addEventListener('click', () => {
+            const files = photoInput.files;
+            if (!files.length) return;
+
+            processBtn.disabled = true;
+            status.textContent = 'Processing...';
+            results.innerHTML = ''; // Clear previous results
+            const formData = new FormData();
+            for (let file of files) {
+                formData.append('files', file);
+            }
+
+            fetch('/process', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(`Server error: ${response.status} - ${text}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                if (data.previews) {
+                    data.previews.forEach(preview => {
+                        const img = document.createElement('img');
+                        img.src = `data:image/png;base64,${preview.image}`;
+                        img.alt = preview.filename;
+                        const resultItem = document.createElement('div');
+                        resultItem.className = 'result-item';
+                        resultItem.appendChild(img);
+                        results.appendChild(resultItem);
+                    });
+                    status.textContent = `Processed ${data.previews.length} of ${files.length} images`;
+                }
+                if (data.zip) {
+                    const zipData = atob(data.zip);
+                    const byteArray = new Uint8Array(zipData.length);
+                    for (let i = 0; i < zipData.length; i++) {
+                        byteArray[i] = zipData.charCodeAt(i);
+                    }
+                    const blob = new Blob([byteArray], { type: 'application/zip' });
+                    const url = URL.createObjectURL(blob);
+                    step2.classList.add('hidden');
+                    step3.classList.remove('hidden');
+                    downloadBtn.disabled = false;
+                    downloadBtn.onclick = () => {
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'processed_images.zip';
+                        a.click();
+                    };
+                    status.textContent = 'All images processed! Ready to download.';
+                }
+            })
+            .catch(error => {
+                status.textContent = `Error: ${error.message}`;
+                processBtn.disabled = false;
+                console.error('Fetch error:', error);
+            });
+        });
+    </script>
+</body>
+</html>
